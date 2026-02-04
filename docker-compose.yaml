@@ -1,0 +1,27 @@
+services:
+  airflow:
+    image: apache/airflow:2.8.1
+    container_name: airflow
+    restart: always
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: "SequentialExecutor"
+      AIRFLOW__CORE__FERNET_KEY: "HahXfherHc6WLWyAGwBt_EmenoEr9eyDtdzTu0laLjQ="  # generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+      AIRFLOW__CORE__DAGS_FOLDER: "/opt/airflow/dags"
+      GOOGLE_APPLICATION_CREDENTIALS: "/opt/airflow/secrets/gcp-service-account.json"
+    volumes:
+      - ./dags:/opt/airflow/dags                       # default DAGs folder
+      - ../sg-air-quality-workflows/dags:/opt/airflow/dags/sg-air-quality-workflows  #workflow DAGs
+      - ../sg-air-quality-etl:/opt/airflow/sg-air-quality-etl #ETL program
+      - ../sg-air-quality-etl/gcp-service-account.json:/opt/airflow/secrets/gcp-service-account.json
+      - ./logs:/opt/airflow/logs                       # Airflow logs
+    ports:
+      - "8080:8080"
+    command: >
+        bash -c "
+        airflow db init &&
+        airflow users create --username admin --password admin --role Admin --email admin@example.com --firstname YourName --lastname Admin || true &&
+        pip install -e /opt/airflow/sg-air-quality-etl &&
+        airflow scheduler &
+        airflow webserver --port 8080 --host 0.0.0.0
+        "
